@@ -1,0 +1,86 @@
+@startuml model
+
+class BoardGrid {
+    - rows: int
+    - columns: int
+    - slots: ObservableList<BoardSlot>
+    + getSlot(row: int, column: int): BoardSlot
+    + getAdjacentSlots(slot: BoardSlot): List<BoardSlot>
+    + placeCard(card: Card, row: int, column: int): boolean
+    + removeCard(row: int, column: int): Card
+    + calculateSynergyMultiplier(slot: BoardSlot): double
+}
+
+class BoardSlot {
+    - row: int
+    - column: int
+    - card: ReadOnlyObjectProperty<Card>
+    + isOccupied(): boolean
+}
+
+class Card {
+    - id: UUID
+    - name: ReadOnlyStringProperty
+    - rarity: CardRarity
+    - baseProduction: double
+    - level: ReadOnlyIntegerProperty
+    - productionProgress: ReadOnlyDoubleProperty
+    - effect: CardEffectStrategy
+    + productionPerSecond(context: EffectContext): double
+    + upgrade(): void
+}
+
+class GameState {
+    - resources: ReadOnlyMapProperty<Currency, Long>
+    - productionMultiplier: ReadOnlyDoubleProperty
+    - prestigePoints: ReadOnlyLongProperty
+    - ascensionLevel: ReadOnlyIntegerProperty
+    - board: ReadOnlyObjectProperty<BoardGrid>
+    - hand: ObservableList<Card>
+    + tick(deltaSeconds: double): void
+    + placeCard(card: Card, row: int, column: int): boolean
+    + removeCard(row: int, column: int): Card
+    + purchaseUpgrade(offerId: String): boolean
+    + prestige(): void
+}
+
+interface CardEffectStrategy {
+    + calculateProductionMultiplier(card: Card, context: EffectContext): double
+}
+
+class EffectContext {
+    + gameState: GameState
+    + slot: BoardSlot
+    + neighbors: List<BoardSlot>
+}
+
+class NeighborEffect
+class IdleBonusEffect
+
+enum Currency {
+    COINS
+    ENERGY
+}
+
+enum CardRarity {
+    COMMON
+    UNCOMMON
+    RARE
+    EPIC
+    LEGENDARY
+}
+
+GameState *-- BoardGrid
+GameState o-- "0..*" Card : hand
+BoardGrid *-- "1..*" BoardSlot
+BoardSlot o-- "0..1" Card : placed card
+Card --> CardEffectStrategy : delegates unique effect
+CardEffectStrategy <|.. NeighborEffect
+CardEffectStrategy <|.. IdleBonusEffect
+Card --> EffectContext : evaluates production with
+EffectContext --> GameState
+EffectContext --> BoardSlot
+Card <-- CardRarity : has a
+Card <-- Currency : Costs
+
+@enduml

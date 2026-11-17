@@ -1,0 +1,52 @@
+@startuml controller
+
+interface GameActions {
+    + placeCard(cardId: UUID, row: int, column: int): void
+    + buyOffer(offerId: String): void
+    + openShop(): void
+  }
+
+  class GameController {
+    - gameState: GameState
+    - mainView: MainView
+    - inputController: InputController
+    - saveManager: SaveManager
+    - animationTimer: AnimationTimer
+    - lastFrameNanos: long
+    + start(): void
+    + stop(): void
+    + handleFrame(nowNanos: long): void
+    + placeCard(cardId: UUID, row: int, column: int): void
+    + buyOffer(offerId: String): void
+    + saveGame(): void
+  }
+
+  class InputController {
+    - gameController: GameController
+    - dragDropHandler: DragDropHandler
+    + attach(view: MainView): void
+    + placeCard(cardId: UUID, row: int, column: int): void
+    + buyOffer(offerId: String): void
+    + openShop(): void
+  }
+
+  class DragDropHandler {
+    - inputController: InputController
+    + install(boardView: BoardView): void
+    + handleDragDetected(cardView: CardView): void
+    + handleDrop(cardId: UUID, target: BoardSlot): void
+  }
+
+  class AnimationTimer <<JavaFX>>
+
+  GameActions <|.. InputController
+  GameController *-- InputController
+  GameController --> GameState : advances on JavaFX thread
+  GameController --> MainView : configures and refreshes
+  InputController --> GameController : forwards user commands
+  InputController *-- DragDropHandler
+  InputController ..> MainView : attaches event handlers
+  DragDropHandler ..> BoardView : handles drag gestures
+  DragDropHandler ..> BoardSlot : resolves drop target
+
+@enduml

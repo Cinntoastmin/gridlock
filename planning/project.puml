@@ -1,0 +1,270 @@
+@startuml Gridlock - MVC Class Diagram
+title Gridlock - MVC Class Diagram
+
+left to right direction
+skinparam packageStyle rectangle
+skinparam classAttributeIconSize 0
+skinparam linetype ortho
+
+package "com.gridlock.model" {
+  enum Currency {
+    COINS
+    ENERGY
+  }
+
+  enum CardRarity {
+    COMMON
+    UNCOMMON
+    RARE
+    EPIC
+    LEGENDARY
+  }
+
+  class GameState {
+    - resources: ReadOnlyMapProperty<Currency, Long>
+    - productionMultiplier: ReadOnlyDoubleProperty
+    - prestigePoints: ReadOnlyLongProperty
+    - ascensionLevel: ReadOnlyIntegerProperty
+    - board: ReadOnlyObjectProperty<BoardGrid>
+    - hand: ObservableList<Card>
+    + tick(deltaSeconds: double): void
+    + placeCard(card: Card, row: int, column: int): boolean
+    + removeCard(row: int, column: int): Card
+    + purchaseUpgrade(offerId: String): boolean
+    + prestige(): void
+  }
+
+  class Card {
+    - id: UUID
+    - name: ReadOnlyStringProperty
+    - rarity: CardRarity
+    - baseProduction: double
+    - level: ReadOnlyIntegerProperty
+    - productionProgress: ReadOnlyDoubleProperty
+    - effect: CardEffectStrategy
+    + productionPerSecond(context: EffectContext): double
+    + upgrade(): void
+  }
+
+  class BoardGrid {
+    - rows: int
+    - columns: int
+    - slots: ObservableList<BoardSlot>
+    + getSlot(row: int, column: int): BoardSlot
+    + getAdjacentSlots(slot: BoardSlot): List<BoardSlot>
+    + placeCard(card: Card, row: int, column: int): boolean
+    + removeCard(row: int, column: int): Card
+    + calculateSynergyMultiplier(slot: BoardSlot): double
+  }
+
+  class BoardSlot {
+    - row: int
+    - column: int
+    - card: ReadOnlyObjectProperty<Card>
+    + isOccupied(): boolean
+  }
+
+  interface CardEffectStrategy {
+    + calculateProductionMultiplier(card: Card, context: EffectContext): double
+  }
+
+  class NeighborSynergyEffect
+  class IdleBonusEffect
+
+  class EffectContext {
+    + gameState: GameState
+    + slot: BoardSlot
+    + neighbors: List<BoardSlot>
+  }
+
+  class SaveManager {
+    - savePath: Path
+    - jsonCodec: JsonCodec
+    - effectRegistry: CardEffectRegistry
+    - offlineProgressCalculator: OfflineProgressCalculator
+    + save(state: GameState): void
+    + load(): GameStateSnapshot
+    + restore(snapshot: GameStateSnapshot, now: Instant): GameState
+  }
+
+  interface JsonCodec {
+    + encode(snapshot: GameStateSnapshot): String
+    + decode(json: String): GameStateSnapshot
+  }
+
+  class CardEffectRegistry {
+    + create(effectType: String): CardEffectStrategy
+  }
+
+  class GameStateSnapshot {
+    + savedAt: Instant
+    + resources: Map<Currency, Long>
+    + productionMultiplier: double
+    + prestigePoints: long
+    + ascensionLevel: int
+    + cards: List<CardSnapshot>
+    + handCardIds: List<UUID>
+    + board: List<BoardSlotSnapshot>
+  }
+
+  class CardSnapshot {
+    + id: UUID
+    + name: String
+    + rarity: CardRarity
+    + baseProduction: double
+    + level: int
+    + effectType: String
+  }
+
+  class BoardSlotSnapshot {
+    + row: int
+    + column: int
+    + cardId: UUID
+  }
+
+  class OfflineProgressCalculator {
+    + calculate(snapshot: GameStateSnapshot, now: Instant): OfflineProgress
+  }
+
+  class OfflineProgress {
+    + elapsedSeconds: double
+    + resourceGains: Map<Currency, Long>
+  }
+
+  GameState *-- BoardGrid
+  GameState o-- "0..*" Card : hand
+  BoardGrid *-- "1..*" BoardSlot
+  BoardSlot o-- "0..1" Card : placed card
+  Card --> CardEffectStrategy : delegates unique effect
+  CardEffectStrategy <|.. NeighborSynergyEffect
+  CardEffectStrategy <|.. IdleBonusEffect
+  Card --> EffectContext : evaluates production with
+  EffectContext --> GameState
+  EffectContext --> BoardSlot
+  SaveManager --> JsonCodec : serializes through
+  SaveManager --> CardEffectRegistry : restores strategies
+  SaveManager --> OfflineProgressCalculator : applies offline gains
+  SaveManager ..> GameState : saves and restores
+  GameStateSnapshot *-- "0..*" CardSnapshot
+  GameStateSnapshot *-- "0..*" BoardSlotSnapshot
+  OfflineProgressCalculator ..> GameStateSnapshot
+  OfflineProgressCalculator ..> OfflineProgress
+}
+
+package "com.gridlock.view" {
+  class MainView {
+    + show(): void
+    + refreshTransientUi(): void
+    + setActions(actions: GameActions): void
+  }
+
+  class MainLayout <<JavaFX root>> {
+    + boardView: BoardView
+    + shopOverlay: ShopOverlay
+  }
+
+  class BoardView <<GridPane>> {
+    - board: BoardGrid
+    - cardViews: ObservableMap<BoardSlot, CardView>
+    + bind(board: BoardGrid): void
+    + refresh(): void
+  }
+
+  class CardView <<StackPane>> {
+    - card: Card
+    - productionProgress: ProgressBar
+    - cssStyleClasses: ObservableList<String>
+    + bind(card: Card): void
+    + showDragState(dragging: boolean): void
+  }
+
+  class ShopOverlay <<modal>> {
+    + show(): void
+    + hide(): void
+    + displayOffers(): void
+  }
+
+  MainView *-- MainLayout
+  MainLayout *-- BoardView
+  MainLayout *-- ShopOverlay
+  BoardView *-- "0..*" CardView
+  BoardView ..> BoardGrid : observes slots
+  CardView ..> Card : binds properties and progress
+}
+
+package "com.gridlock.controller" {
+  interface GameActions {
+    + placeCard(cardId: UUID, row: int, column: int): void
+    + buyOffer(offerId: String): void
+    + openShop(): void
+  }
+
+  class GameController {
+    - gameState: GameState
+    - mainView: MainView
+    - inputController: InputController
+    - saveManager: SaveManager
+    - animationTimer: AnimationTimer
+    - lastFrameNanos: long
+    + start(): void
+    + stop(): void
+    + handleFrame(nowNanos: long): void
+    + placeCard(cardId: UUID, row: int, column: int): void
+    + buyOffer(offerId: String): void
+    + saveGame(): void
+  }
+
+  class InputController {
+    - gameController: GameController
+    - dragDropHandler: DragDropHandler
+    + attach(view: MainView): void
+    + placeCard(cardId: UUID, row: int, column: int): void
+    + buyOffer(offerId: String): void
+    + openShop(): void
+  }
+
+  class DragDropHandler {
+    - inputController: InputController
+    + install(boardView: BoardView): void
+    + handleDragDetected(cardView: CardView): void
+    + handleDrop(cardId: UUID, target: BoardSlot): void
+  }
+
+  class AnimationTimer <<JavaFX>>
+
+  GameActions <|.. InputController
+  GameController *-- InputController
+  GameController --> GameState : advances on JavaFX thread
+  GameController --> SaveManager : persists and restores
+  GameController --> MainView : configures and refreshes
+  InputController --> GameController : forwards user commands
+  InputController *-- DragDropHandler
+  InputController ..> MainView : attaches event handlers
+  DragDropHandler ..> BoardView : handles drag gestures
+  DragDropHandler ..> BoardSlot : resolves drop target
+}
+
+MainView ..> GameActions : dispatches UI actions
+MainView ..> GameState : read-only JavaFX bindings
+ShopOverlay ..> GameActions : purchase and navigation actions
+GameController ..> AnimationTimer : owns frame loop
+
+note bottom of GameController
+  MVC boundary:
+  Model owns game rules and observable state.
+  View renders and binds to read-only model properties.
+  Observable collections are exposed as unmodifiable observable views.
+  CSS pseudo-classes style hover and drag states.
+  Controllers translate input into model commands.
+  The AnimationTimer computes delta time and ticks the model
+  on the JavaFX Application Thread; bindings update controls
+  automatically and refreshTransientUi handles non-bound effects.
+end note
+
+note right of SaveManager
+  Persist a versionable snapshot, not JavaFX properties.
+  On restore, calculate offline gains from savedAt
+  before rebuilding the observable GameState.
+end note
+
+@enduml

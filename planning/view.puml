@@ -1,0 +1,40 @@
+@startuml View
+class MainView {
+    + show(): void
+    + refreshTransientUi(): void
+    + setActions(actions: GameActions): void
+}
+
+class MainLayout <<JavaFX root>> {
+    + boardView: BoardView
+    + shopOverlay: ShopOverlay
+}
+
+class BoardView <<GridPane>> {
+    - board: BoardGrid
+    - cardViews: ObservableMap<BoardSlot, CardView>
+    + bind(board: BoardGrid): void
+    + refresh(): void
+}
+
+class CardView <<StackPane>> {
+    - card: Card
+    - productionProgress: ProgressBar
+    - cssStyleClasses: ObservableList<String>
+    + bind(card: Card): void
+    + showDragState(dragging: boolean): void
+}
+
+class ShopOverlay <<modal>> {
+    + show(): void
+    + hide(): void
+    + displayOffers(): void
+}
+
+MainView *-- MainLayout
+MainLayout *-- BoardView
+MainLayout *-- ShopOverlay
+BoardView *-- "0..*" CardView
+BoardView ..> BoardGrid : observes slots
+CardView ..> Card : binds properties and progress
+@enduml
