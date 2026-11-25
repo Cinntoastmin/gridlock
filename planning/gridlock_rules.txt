@@ -1,0 +1,54 @@
+Gridlock
+------------------------
+
+a turn based card automation game. where players use a deck of cards create a factory
+to meet a production target.
+
+the game will start with the 3x3 factory grid blank. at the start of the players first turn they will draw 
+4 cards as a starting hand. the player may select any cards from their initial hand 
+to mulligan. after these are selected they are set aside, new cards are drawn in their 
+place, and then the selected mulligan cards are shuffled back into the deck.
+
+at the start of the game the players deck will consist of 10 cards:
+    4 production buildings which increment the production of the factory by one when placed
+    3 enhancement buildings which provide no production bonus by themselves, 
+        but instead increase the production of adjacent production buildings
+    2 augments which can be played on top of an exsisting building to increase their level. 
+        which enhances their default behavior. 
+        i.e. production builds will increase their base production
+        and enhancement buildings will increase their production multiplier
+    1 "Overclock" which immediately generates the current factories production value and adds it to the total
+
+a turn ends after the player plays two cards (this value can be upgraded between rounds)
+
+at the end of the turn the current production value of the factory is added to the total round production
+then if the total round production exceeds the quota the round ends. 
+
+if after the final turn the total round production does not meet or exceed the quota the game ends
+
+after each time the player meets quota a new quota is set at the current quota times a difficulty modifier
+    1.5 for easy
+    2.0 for medium
+    and 2.5 for hard (subject to change given playtest results)
+the turn counter is reset to zero and a number of additional turns is given equal to the floor of the difficulty modifier inverse to the current player's selection 
+    ie if the player has selected easy they would be given floor(hard_difficulty_modifier) turns
+
+before the player takes their first turn they are give the ability to spend their current production to modify their deck of cards
+they may:
+    upgrade cards:
+        which applies a permanent augment to a building card
+        add cards to their deck (details to come)
+        remove cards from their deck (minimum deck size 0)
+        (more options may come but start here)
+
+then after the player modifies their deck the unspent production is added to their 
+next round's total production and the next round begins:
+    board is empty
+    player draws up to four cards
+    player may mulligan any number of cards
+    player plays cards to limit
+    turn ends
+        factory production gets added to it's total round production
+        if the total prodcution exceeds the quota trigger the upgrade phase
+        otherwise 
+
